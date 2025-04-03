@@ -1,6 +1,7 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+# Update this import path to match your directory structure
 from app.core.config.settings import settings
 
 engine = create_engine(

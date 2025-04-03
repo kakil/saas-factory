@@ -11,6 +11,8 @@ from app.features.teams.api import router as teams_router
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
+    description="Python-based API for the SaaS Factory",
+    version="0.1.0",
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
     docs_url=f"{settings.API_V1_STR}/docs",
     redoc_url=f"{settings.API_V1_STR}/redoc",
