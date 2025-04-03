@@ -1,0 +1,48 @@
+[tool.poetry]
+name = "saas-factory"
+version = "0.1.0"
+description = "Python-first SaaS Factory Backend"
+authors = ["Kitwana Akil <kit@toolkitsforsuccess.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+fastapi = "^0.104.0"
+uvicorn = "^0.23.2"
+sqlalchemy = "^2.0.21"
+alembic = "^1.12.0"
+pydantic = "^2.4.2"
+python-jose = {extras = ["cryptography"], version = "^3.3.0"}
+passlib = {extras = ["bcrypt"], version = "^1.7.4"}
+psycopg2-binary = "^2.9.9"
+httpx = "^0.25.0"
+python-multipart = "^0.0.6"
+email-validator = "^2.0.0"
+redis = "^5.0.0"
+tenacity = "^8.2.3"
+pytest = "^7.4.2"
+pytest-asyncio = "^0.21.1"
+pytest-cov = "^4.1.0"
+black = "^23.9.1"
+isort = "^5.12.0"
+flake8 = "^6.1.0"
+supabase = "^2.1.0"
+
+[tool.poetry.dev-dependencies]
+pre-commit = "^3.4.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 88
+target-version = ['py310']
+
+[tool.isort]
+profile = "black"
+line_length = 88
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_functions = "test_*"
