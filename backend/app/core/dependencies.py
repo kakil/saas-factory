@@ -1,5 +1,5 @@
 import os
-from typing import Optional, Generator
+from typing import Optional, Generator, Dict, Any
 
 import httpx
 from fastapi import Depends, HTTPException, status, Request
@@ -7,29 +7,81 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
-from supabase import create_client, Client
 
 from app.core.config.settings import settings
 from app.core.db.session import get_db
+from app.core.security.supabase import supabase_auth
 from app.features.users.models import User
+from app.features.users.repository import get_user_repository, UserRepository
 from app.features.users.schemas import TokenPayload
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/token")
 
-# Initialize Supabase client
-supabase_url = settings.SUPABASE_URL
-supabase_key = settings.SUPABASE_KEY
-supabase: Client = create_client(supabase_url, supabase_key)
+
+async def get_current_user_supabase(
+        token: str = Depends(oauth2_scheme),
+        db: Session = Depends(get_db),
+        user_repository: UserRepository = Depends(get_user_repository)
+) -> User:
+    """
+    Dependency to get the current authenticated user using Supabase Auth
+    """
+    try:
+        # Verify with Supabase
+        user_data = await supabase_auth.verify_token(token)
+        
+        # Get Supabase user ID and email
+        supabase_uid = user_data.get("id")
+        email = user_data.get("email")
+        
+        if not email:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid authentication credentials",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+            
+        # Find or create user in our database
+        user = user_repository.get_by_email(email=email)
+        
+        if not user:
+            # This means the user exists in Supabase but not in our database
+            # You might want to handle this differently based on your user flow
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not found in application database",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+            
+        if not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Inactive user",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+            
+        # Store Supabase user ID in request state
+        # This could be useful for other operations
+        return user
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Could not validate credentials: {str(e)}",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
 
-async def get_current_user(
+async def get_current_user_jwt(
         db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)
 ) -> User:
     """
-    Dependency to get the current authenticated user
+    Legacy dependency to get the current authenticated user using our JWT
     """
     try:
-        # Verify JWT with Supabase
+        # Verify JWT
         payload = jwt.decode(
             token, settings.SECRET_KEY, algorithms=["HS256"]
         )
@@ -56,6 +108,11 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
     return user
+
+
+# Set the current authentication method
+# During transition, you can toggle between the two methods
+get_current_user = get_current_user_supabase
 
 
 async def get_admin_user(current_user: User = Depends(get_current_user)) -> User:

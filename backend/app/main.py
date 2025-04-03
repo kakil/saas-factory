@@ -5,6 +5,7 @@ import uvicorn
 
 from app.core.config.settings import settings
 from app.core.db.session import get_db
+from app.core.middleware import JWTAuthMiddleware
 from app.features.auth.api import router as auth_router
 from app.features.users.api import router as users_router
 from app.features.teams.api import router as teams_router
@@ -28,6 +29,9 @@ if settings.BACKEND_CORS_ORIGINS:
         allow_headers=["*"],
     )
 
+# Add JWT Auth middleware
+app.add_middleware(JWTAuthMiddleware)
+
 
 # Middleware to set tenant context
 @app.middleware("http")
@@ -36,8 +40,21 @@ async def tenant_middleware(request: Request, call_next):
     if request.url.path.startswith(f"{settings.API_V1_STR}/auth") or request.url.path == "/":
         return await call_next(request)
 
-    # For other endpoints, attempt to get tenant context from request
-    # This will be implemented in Phase 2
+    # For other endpoints, get tenant context from the user set by JWTAuthMiddleware
+    try:
+        user = getattr(request.state, "user", None)
+        if user and user.organization_id:
+            # Get database session
+            db = next(get_db())
+            
+            # Set tenant context in database
+            db.execute(f"SET app.current_tenant = '{user.organization_id}'")
+            
+            # Store in request state
+            request.state.tenant_id = user.organization_id
+    except Exception:
+        # Continue without tenant context if it fails
+        pass
 
     return await call_next(request)
 

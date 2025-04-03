@@ -18,6 +18,7 @@ class User(Base):
     is_superuser = Column(Boolean, default=False, nullable=False)
     organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=True)
     settings = Column(JSON, nullable=True)
+    supabase_uid = Column(String, unique=True, index=True, nullable=True)  # Supabase User ID
 
     # Relationships
     organization = relationship("Organization", back_populates="members")

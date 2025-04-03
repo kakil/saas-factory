@@ -56,6 +56,8 @@ class User(UserInDBBase):
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
+    refresh_token: Optional[str] = None
+    expires_in: Optional[int] = None
 
 
 class TokenPayload(BaseModel):
@@ -67,6 +69,11 @@ class TokenPayload(BaseModel):
 class Login(BaseModel):
     email: EmailStr
     password: str
+
+
+# Refresh token request schema
+class RefreshToken(BaseModel):
+    refresh_token: str
 
 
 # User with organization details

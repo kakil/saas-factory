@@ -8,10 +8,10 @@ from fastapi.testclient import TestClient
 from app.core.db.base import Base
 from app.main import app
 from app.core.db.session import get_db
+from tests.test_settings import test_settings
 
-# Test database URL
-TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL",
-                              "postgresql://postgres:postgres@localhost:5432/saas_factory_test_db")
+# Test database URL - using the test settings
+TEST_DATABASE_URL = f"postgresql://{test_settings.POSTGRES_USER}:{test_settings.POSTGRES_PASSWORD}@{test_settings.POSTGRES_SERVER}/{test_settings.POSTGRES_DB}"
 
 # Create test database engine
 test_engine = create_engine(TEST_DATABASE_URL)
