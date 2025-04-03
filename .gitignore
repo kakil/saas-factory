@@ -65,3 +65,6 @@ docs/api-docs/
 
 # CI/CD
 .github/workflows/.secrets
+
+PROJECT_DOCS/*
+CLAUDE.md
