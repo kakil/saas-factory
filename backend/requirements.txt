@@ -38,3 +38,6 @@ redis==5.0.1
 anthropic==0.8.1
 openai==1.10.0
 google-generativeai==0.3.2
+
+# Add this line to requirements.txt
+sqlalchemy-utils==0.41.1
