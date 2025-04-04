@@ -69,10 +69,39 @@ services:
       - N8N_BASIC_AUTH_ACTIVE=true
       - N8N_BASIC_AUTH_USER=${N8N_USER}
       - N8N_BASIC_AUTH_PASSWORD=${N8N_PASSWORD}
+      - N8N_PRODUCTION=true
+      - N8N_EDITOR_BASE_URL=http://localhost:5678
+      - N8N_PROTOCOL=http
+      - N8N_HOST=localhost
+      - N8N_PORT=5678
+      - N8N_WEBHOOK_TUNNEL_URL=http://n8n:5678/
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_HOST=db
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=db
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=${POSTGRES_DB}
+      - DB_POSTGRESDB_USER=${POSTGRES_USER}
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - N8N_SMTP_HOST=${SMTP_HOST}
+      - N8N_SMTP_PORT=${SMTP_PORT}
+      - N8N_SMTP_USER=${SMTP_USER}
+      - N8N_SMTP_PASS=${SMTP_PASSWORD}
+      - N8N_SMTP_SENDER=${EMAILS_FROM_EMAIL}
+      - WEBHOOK_URL=http://backend:8000/api/v1/workflows/webhooks/n8n
+      - WEBHOOK_API_KEY=${N8N_API_KEY}
     volumes:
       - n8n_data:/home/node/.n8n
+      - ./n8n:/tmp/workflows
     depends_on:
       - redis
+      - db
+    restart: unless-stopped
 
 volumes:
   postgres_data:

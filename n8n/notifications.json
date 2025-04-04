@@ -1,0 +1,264 @@
+{
+  "name": "Notification System Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "notifications/send",
+        "options": {}
+      },
+      "id": "a5e9a2c7-f8c3-4b7a-9d8e-2c4f78b1a4c8",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.channel }}",
+              "operation": "equal",
+              "value2": "email"
+            }
+          ]
+        }
+      },
+      "id": "b8c2f9e3-a4d2-4e1f-8d5c-1a3f67b9c2d5",
+      "name": "IF",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        450,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $json.from || 'notifications@example.com' }}",
+        "toEmail": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "text": "={{ $json.body }}",
+        "options": {
+          "attachments": "={{ $json.attachments }}"
+        }
+      },
+      "id": "c7d4e5b1-f6a9-4c8d-b2e3-9f3a5c8d6e7b",
+      "name": "Send Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 1,
+      "position": [
+        650,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://backend:8000/api/v1/notifications",
+        "authentication": "headerAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"user_id\": \"{{ $json.user_id }}\", \"title\": \"{{ $json.title }}\", \"message\": \"{{ $json.message }}\", \"type\": \"{{ $json.type }}\", \"read\": false }"
+      },
+      "id": "d6e7f8c9-a1b2-4c3d-e5f6-g7h8i9j0k1l2",
+      "name": "Create In-App Notification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        650,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.important }}",
+              "operation": "equal",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "e5f6g7h8-i9j0-k1l2-m3n4-o5p6q7r8s9t0",
+      "name": "Check Importance",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        850,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://backend:8000/api/v1/notifications/push",
+        "authentication": "headerAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"user_id\": \"{{ $json.user_id }}\", \"title\": \"{{ $json.title }}\", \"message\": \"{{ $json.message }}\", \"icon\": \"{{ $json.icon || 'default' }}\" }"
+      },
+      "id": "f6g7h8i9-j0k1-l2m3-n4o5-p6q7r8s9t0u1",
+      "name": "Send Push Notification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        1050,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.channel }}",
+              "operation": "equal",
+              "value2": "sms"
+            }
+          ]
+        }
+      },
+      "id": "g7h8i9j0-k1l2-m3n4-o5p6-q7r8s9t0u1v2",
+      "name": "Check SMS",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        450,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "fromNumber": "={{ $json.from_number || '+15555555555' }}",
+        "toNumber": "={{ $json.to_number }}",
+        "message": "={{ $json.message }}"
+      },
+      "id": "h8i9j0k1-l2m3-n4o5-p6q7-r8s9t0u1v2w3",
+      "name": "Send SMS",
+      "type": "n8n-nodes-base.twilioSms",
+      "typeVersion": 1,
+      "position": [
+        650,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Notification System\nThis workflow handles different types of notifications:\n\n1. Email notifications\n2. In-app notifications\n3. Push notifications for important messages\n4. SMS notifications",
+        "height": 255,
+        "width": 400
+      },
+      "id": "i9j0k1l2-m3n4-o5p6-q7r8-s9t0u1v2w3x4",
+      "name": "Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        250,
+        60
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "IF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF": {
+      "true": [
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "false": [
+        [
+          {
+            "node": "Create In-App Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create In-App Notification": {
+      "main": [
+        [
+          {
+            "node": "Check Importance",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Importance": {
+      "true": [
+        [
+          {
+            "node": "Send Push Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Check SMS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check SMS": {
+      "true": [
+        [
+          {
+            "node": "Send SMS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {}
+}

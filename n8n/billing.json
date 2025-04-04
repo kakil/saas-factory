@@ -1,0 +1,320 @@
+{
+  "name": "Billing Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "billing/webhook",
+        "options": {}
+      },
+      "id": "a1b2c3d4-e5f6-g7h8-i9j0-k1l2m3n4o5p6",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.type }}",
+              "operation": "equal",
+              "value2": "invoice.payment_succeeded"
+            }
+          ]
+        }
+      },
+      "id": "b2c3d4e5-f6g7-h8i9-j0k1-l2m3n4o5p6q7",
+      "name": "Check Event Type",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        450,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://backend:8000/api/v1/billing/invoices/{{ $json.data.object.id }}/paid",
+        "authentication": "headerAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"event_id\": \"{{ $json.id }}\", \"invoice_id\": \"{{ $json.data.object.id }}\", \"amount_paid\": {{ $json.data.object.amount_paid }}, \"status\": \"{{ $json.data.object.status }}\" }"
+      },
+      "id": "c3d4e5f6-g7h8-i9j0-k1l2-m3n4o5p6q7r8",
+      "name": "Update Invoice Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        650,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "billing@example.com",
+        "toEmail": "={{ $json.data.object.customer_email }}",
+        "subject": "Payment Receipt - SaaS Factory",
+        "text": "=Dear {{ $json.data.object.customer_name }},\n\nThank you for your payment! Your invoice has been paid successfully.\n\nInvoice ID: {{ $json.data.object.id }}\nAmount Paid: ${{ $json.data.object.amount_paid / 100 }}\nDate: {{ $json.data.object.created_at }}\n\nYou can view your invoice by clicking on the following link:\n{{ $json.data.object.hosted_invoice_url }}\n\nThank you for your business!\n\nBest regards,\nThe SaaS Factory Team",
+        "options": {}
+      },
+      "id": "d4e5f6g7-h8i9-j0k1-l2m3-n4o5p6q7r8s9",
+      "name": "Send Receipt Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 1,
+      "position": [
+        850,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.type }}",
+              "operation": "equal",
+              "value2": "invoice.payment_failed"
+            }
+          ]
+        }
+      },
+      "id": "e5f6g7h8-i9j0-k1l2-m3n4-o5p6q7r8s9t0",
+      "name": "Check Payment Failed",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        450,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://backend:8000/api/v1/billing/invoices/{{ $json.data.object.id }}/failed",
+        "authentication": "headerAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"event_id\": \"{{ $json.id }}\", \"invoice_id\": \"{{ $json.data.object.id }}\", \"failure_reason\": \"{{ $json.data.object.failure_message }}\", \"status\": \"failed\" }"
+      },
+      "id": "f6g7h8i9-j0k1-l2m3-n4o5-p6q7r8s9t0u1",
+      "name": "Update Failed Invoice",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        650,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "billing@example.com",
+        "toEmail": "={{ $json.data.object.customer_email }}",
+        "subject": "Payment Failed - Action Required",
+        "text": "=Dear {{ $json.data.object.customer_name }},\n\nWe were unable to process your payment for the recent invoice.\n\nInvoice ID: {{ $json.data.object.id }}\nAmount Due: ${{ $json.data.object.amount_due / 100 }}\nReason: {{ $json.data.object.failure_message }}\n\nPlease update your payment method by clicking on the following link:\n{{ $json.data.object.hosted_invoice_url }}\n\nIf you have any questions, please reply to this email or contact our support team.\n\nThank you for your attention to this matter.\n\nBest regards,\nThe SaaS Factory Team",
+        "options": {}
+      },
+      "id": "g7h8i9j0-k1l2-m3n4-o5p6-q7r8s9t0u1v2",
+      "name": "Send Failed Payment Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 1,
+      "position": [
+        850,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.type }}",
+              "operation": "equal",
+              "value2": "customer.subscription.created"
+            }
+          ]
+        }
+      },
+      "id": "h8i9j0k1-l2m3-n4o5-p6q7-r8s9t0u1v2w3",
+      "name": "Check Subscription Created",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        450,
+        700
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://backend:8000/api/v1/billing/subscriptions",
+        "authentication": "headerAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"subscription_id\": \"{{ $json.data.object.id }}\", \"customer_id\": \"{{ $json.data.object.customer }}\", \"plan_id\": \"{{ $json.data.object.plan.id }}\", \"status\": \"{{ $json.data.object.status }}\", \"current_period_start\": {{ $json.data.object.current_period_start }}, \"current_period_end\": {{ $json.data.object.current_period_end }} }"
+      },
+      "id": "i9j0k1l2-m3n4-o5p6-q7r8-s9t0u1v2w3x4",
+      "name": "Create Subscription",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        650,
+        700
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "billing@example.com",
+        "toEmail": "={{ $json.data.object.customer_email }}",
+        "subject": "Subscription Activated - SaaS Factory",
+        "text": "=Dear {{ $json.data.object.customer_name }},\n\nThank you for subscribing to SaaS Factory! Your subscription has been activated successfully.\n\nSubscription Details:\n- Plan: {{ $json.data.object.plan.name }}\n- Amount: ${{ $json.data.object.plan.amount / 100 }} / {{ $json.data.object.plan.interval }}\n- Start Date: {{ $json.data.object.current_period_start }}\n\nYou can manage your subscription at any time by visiting your account settings.\n\nThank you for choosing SaaS Factory!\n\nBest regards,\nThe SaaS Factory Team",
+        "options": {}
+      },
+      "id": "j0k1l2m3-n4o5-p6q7-r8s9-t0u1v2w3x4y5",
+      "name": "Send Subscription Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 1,
+      "position": [
+        850,
+        700
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Billing Workflow\nHandles Stripe webhook events:\n\n1. Invoice payment succeeded\n2. Invoice payment failed\n3. Subscription created\n4. (Additional events can be added)",
+        "height": 205,
+        "width": 400
+      },
+      "id": "k1l2m3n4-o5p6-q7r8-s9t0-u1v2w3x4y5z6",
+      "name": "Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        250,
+        60
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Check Event Type",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Check Payment Failed",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Check Subscription Created",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Event Type": {
+      "true": [
+        [
+          {
+            "node": "Update Invoice Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Invoice Status": {
+      "main": [
+        [
+          {
+            "node": "Send Receipt Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Payment Failed": {
+      "true": [
+        [
+          {
+            "node": "Update Failed Invoice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Failed Invoice": {
+      "main": [
+        [
+          {
+            "node": "Send Failed Payment Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Subscription Created": {
+      "true": [
+        [
+          {
+            "node": "Create Subscription",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Subscription": {
+      "main": [
+        [
+          {
+            "node": "Send Subscription Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {}
+}

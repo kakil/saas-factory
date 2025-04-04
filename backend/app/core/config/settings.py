@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8
     SERVER_HOST: AnyHttpUrl = "http://localhost"
     SERVER_PORT: int = 8000
+    ENVIRONMENT: str = "development"
 
     # CORS configuration
     BACKEND_CORS_ORIGINS: List[str] = []

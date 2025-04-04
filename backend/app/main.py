@@ -9,6 +9,7 @@ from app.core.api.responses import success_response
 from app.features.auth.api import router as auth_router
 from app.features.users.api import router as users_router
 from app.features.teams.api import router as teams_router
+from app.features.workflows.api.router import router as workflows_router
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -42,6 +43,7 @@ add_exception_handlers(app)
 app.include_router(auth_router, prefix=f"{settings.API_V1_STR}/auth", tags=["authentication"])
 app.include_router(users_router, prefix=f"{settings.API_V1_STR}/users", tags=["users"])
 app.include_router(teams_router, prefix=f"{settings.API_V1_STR}", tags=["teams"])
+app.include_router(workflows_router, prefix=f"{settings.API_V1_STR}", tags=["workflows"])
 
 
 @app.get("/")

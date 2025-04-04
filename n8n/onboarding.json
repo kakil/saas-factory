@@ -1,0 +1,208 @@
+{
+  "name": "User Onboarding Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "onboarding/trigger",
+        "options": {}
+      },
+      "id": "1a4ac4bf-515a-475e-94d3-90ace891c3ca",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.event }}",
+              "operation": "equal",
+              "value2": "user_created"
+            }
+          ]
+        }
+      },
+      "id": "62d508d0-166e-4f19-9e4e-9785afb39acc",
+      "name": "IF",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        450,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "headerAuth",
+        "requestMethod": "POST",
+        "url": "=http://backend:8000/api/v1/users/{{ $json.user_id }}/verify",
+        "options": {},
+        "bodyParametersUi": {
+          "parameter": [
+            {
+              "name": "token",
+              "value": "={{ $json.token }}"
+            }
+          ]
+        }
+      },
+      "id": "7e4ac3fb-eff9-4ea1-bda9-105d19acbfef",
+      "name": "Verify User",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        650,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "noreply@example.com",
+        "toEmail": "={{ $json.email }}",
+        "subject": "Welcome to SaaS Factory!",
+        "text": "=Hi {{ $json.name }},\n\nWelcome to SaaS Factory! We're excited to have you on board.\n\nTo get started, please verify your email by clicking on the following link:\n{{ $json.verification_url }}\n\nIf you have any questions, feel free to reply to this email.\n\nBest regards,\nThe SaaS Factory Team",
+        "options": {}
+      },
+      "id": "ba8b1aa8-b4d8-4e9b-a5fe-d4d50ff25ddd",
+      "name": "Send Welcome Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 1,
+      "position": [
+        850,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## User Onboarding Complete\nThe user has been successfully onboarded.",
+        "height": 160,
+        "width": 400
+      },
+      "id": "4ffba4d3-0249-4a57-9074-6bbbfd85b6ab",
+      "name": "Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1150,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "headerAuth",
+        "requestMethod": "POST",
+        "url": "=http://backend:8000/api/v1/teams",
+        "options": {},
+        "bodyParametersUi": {
+          "parameter": [
+            {
+              "name": "name",
+              "value": "={{ $json.team_name || 'Default Team' }}"
+            },
+            {
+              "name": "description",
+              "value": "Default team created during onboarding"
+            }
+          ]
+        }
+      },
+      "id": "e1f8de5f-f5a9-46bb-b50b-9c9d958e8c24",
+      "name": "Create Default Team",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        650,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://backend:8000/api/v1/notifications",
+        "authentication": "headerAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"user_id\": \"{{ $json.user_id }}\", \"title\": \"Welcome to SaaS Factory\", \"message\": \"Your account has been created successfully. Get started by creating your first project.\", \"type\": \"onboarding\" }"
+      },
+      "id": "d69a4fb7-3e81-45a5-8e52-bcc93938422a",
+      "name": "Create Welcome Notification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        850,
+        420
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "IF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF": {
+      "true": [
+        [
+          {
+            "node": "Verify User",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "false": [
+        [
+          {
+            "node": "Create Default Team",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify User": {
+      "main": [
+        [
+          {
+            "node": "Send Welcome Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Default Team": {
+      "main": [
+        [
+          {
+            "node": "Create Welcome Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {}
+}

@@ -1,0 +1,1 @@
+# Workflow service for n8n integration
