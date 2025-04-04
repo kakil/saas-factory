@@ -66,5 +66,8 @@ docs/api-docs/
 # CI/CD
 .github/workflows/.secrets
 
+# Project documentation - keep locally but don't track
 PROJECT_DOCS/*
+*/PROJECT_DOCS/*
+backend/PROJECT_DOCS/*
 CLAUDE.md
