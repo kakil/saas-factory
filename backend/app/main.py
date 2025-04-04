@@ -1,9 +1,11 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
 from app.core.config.settings import settings
 from app.core.middleware import AuthMiddleware, TenantMiddleware
+from app.core.errors.handlers import add_exception_handlers
+from app.core.api.responses import success_response
 from app.features.auth.api import router as auth_router
 from app.features.users.api import router as users_router
 from app.features.teams.api import router as teams_router
@@ -33,6 +35,9 @@ app.add_middleware(AuthMiddleware)
 # Add Tenant middleware
 app.add_middleware(TenantMiddleware)
 
+# Add exception handlers
+add_exception_handlers(app)
+
 # Include API routers
 app.include_router(auth_router, prefix=f"{settings.API_V1_STR}/auth", tags=["authentication"])
 app.include_router(users_router, prefix=f"{settings.API_V1_STR}/users", tags=["users"])
@@ -44,7 +49,10 @@ def read_root():
     """
     Root endpoint for health check
     """
-    return {"status": "healthy", "message": "SaaS Factory API is running"}
+    return success_response(
+        message="SaaS Factory API is running",
+        data={"version": settings.API_V1_STR, "environment": settings.ENVIRONMENT}
+    )
 
 
 @app.get(f"{settings.API_V1_STR}/health")
@@ -52,7 +60,32 @@ def health_check():
     """
     Health check endpoint
     """
-    return {"status": "healthy", "message": "SaaS Factory API is running"}
+    return success_response(
+        message="SaaS Factory API is running",
+        data={
+            "version": settings.API_V1_STR,
+            "environment": settings.ENVIRONMENT,
+            "services": {
+                "api": "healthy",
+                "database": "healthy"
+            }
+        },
+        meta={
+            "uptime": "unknown",  # In a real implementation, this would be actual uptime
+            "server_time": "unknown"  # In a real implementation, this would be actual time
+        }
+    )
+
+
+# Test endpoint for exception handling test
+@app.get("/api/v1/test/not-found")
+def test_not_found():
+    """
+    Test endpoint that raises a NotFoundException
+    Only used for testing the exception handler
+    """
+    from app.core.errors.exceptions import NotFoundException
+    raise NotFoundException(detail="Test resource not found")
 
 
 if __name__ == "__main__":

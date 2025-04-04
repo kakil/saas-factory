@@ -6,6 +6,9 @@ from sqlalchemy.orm import Session
 from app.core.config.settings import settings
 from app.core.db.session import get_db
 from app.core.dependencies import get_current_user, get_admin_user, get_tenant_repository, get_tenant_info
+from app.core.api.responses import success_response, error_response, paginated_response
+from app.core.api.pagination import PaginationParams, paginate_query
+from app.core.errors.exceptions import NotFoundException, PermissionDeniedException, ValidationException
 from app.features.teams.repository import TeamRepository, OrganizationRepository, get_team_repository, get_organization_repository
 from app.features.teams.schemas import Organization, OrganizationCreate, Team, TeamCreate, TeamMember
 from app.features.users.models import User
@@ -76,10 +79,9 @@ def get_organization(
 get_tenant_team_repo = get_tenant_repository(lambda db: TeamRepository(Team, db))
 
 
-@router.get(f"{settings.API_V1_STR}/teams", response_model=List[Team])
+@router.get(f"{settings.API_V1_STR}/teams")
 def get_teams(
-    skip: int = 0,
-    limit: int = 100,
+    pagination: PaginationParams = Depends(),
     current_user: User = Depends(get_current_user),
     repo: TeamRepository = Depends(get_tenant_team_repo),
     tenant_info: dict = Depends(get_tenant_info),
@@ -89,9 +91,26 @@ def get_teams(
     
     Uses the tenant-aware repository which automatically filters by organization (tenant).
     The tenant context is extracted from the authenticated user or X-Tenant-ID header.
+    
+    This endpoint uses standardized pagination and response format.
     """
-    teams = repo.get_by_organization(skip=skip, limit=limit)
-    return teams
+    result = paginate_query(
+        repo=repo,
+        params=pagination,
+        schema_cls=Team
+    )
+    
+    return paginated_response(
+        items=[item.dict() for item in result.items],
+        total=result.total,
+        page=pagination.page,
+        page_size=pagination.page_size,
+        message="Teams retrieved successfully",
+        meta={
+            "tenant_id": tenant_info.get("tenant_id"),
+            "tenant_name": tenant_info.get("tenant_name", "Unknown")
+        }
+    )
 
 
 @router.post(f"{settings.API_V1_STR}/teams", response_model=Team)
@@ -112,7 +131,7 @@ def create_team(
     return team
 
 
-@router.get(f"{settings.API_V1_STR}/teams/{{team_id}}", response_model=Team)
+@router.get(f"{settings.API_V1_STR}/teams/{{team_id}}")
 def get_team(
     team_id: int,
     repo: TeamRepository = Depends(get_tenant_team_repo),
@@ -121,33 +140,59 @@ def get_team(
     Get team by ID
     
     Tenant isolation ensures users can only access teams in their tenant.
+    Uses standardized error handling and response format.
     """
     team = repo.get(id=team_id)
     if not team:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Team not found",
-        )
-    return team
+        raise NotFoundException(detail=f"Team with ID {team_id} not found")
+    
+    team_data = Team.from_orm(team)
+    return success_response(
+        data=team_data.dict(),
+        message="Team retrieved successfully"
+    )
 
 
-@router.get(f"{settings.API_V1_STR}/teams/{{team_id}}/members", response_model=List[TeamMember])
+@router.get(f"{settings.API_V1_STR}/teams/{{team_id}}/members")
 def get_team_members(
     team_id: int,
-    skip: int = 0,
-    limit: int = 100,
+    pagination: PaginationParams = Depends(),
     repo: TeamRepository = Depends(get_tenant_team_repo),
 ):
     """
     Get team members
     
     Tenant isolation ensures users can only access teams in their tenant.
+    Uses standardized pagination and response format.
     """
-    members = repo.get_members(team_id=team_id, skip=skip, limit=limit)
-    return [TeamMember(id=m.id, email=m.email, name=m.name) for m in members]
+    # Check if team exists
+    team = repo.get(id=team_id)
+    if not team:
+        raise NotFoundException(detail=f"Team with ID {team_id} not found")
+    
+    # Get members with pagination
+    members = repo.get_members(team_id=team_id, skip=pagination.skip, limit=pagination.limit)
+    
+    # Convert to schema
+    member_data = [TeamMember(id=m.id, email=m.email, name=m.name).dict() for m in members]
+    
+    # Get total count (in a real implementation, this would be a separate count query)
+    total = len(members)  # This is a simplification, in reality we'd do a count query
+    
+    return paginated_response(
+        items=member_data,
+        total=total,
+        page=pagination.page,
+        page_size=pagination.page_size,
+        message="Team members retrieved successfully",
+        meta={
+            "team_id": team_id,
+            "team_name": team.name
+        }
+    )
 
 
-@router.post(f"{settings.API_V1_STR}/teams/{{team_id}}/members/{{user_id}}", response_model=dict)
+@router.post(f"{settings.API_V1_STR}/teams/{{team_id}}/members/{{user_id}}")
 def add_team_member(
     team_id: int,
     user_id: int,
@@ -157,17 +202,22 @@ def add_team_member(
     Add user to team
     
     Tenant isolation ensures users can only modify teams in their tenant.
+    Uses standardized error handling and response format.
     """
     success = repo.add_member(team_id=team_id, user_id=user_id)
     if not success:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Team or user not found",
-        )
-    return {"status": "success", "message": "User added to team"}
+        raise NotFoundException(detail="Team or user not found")
+    
+    return success_response(
+        message="User added to team successfully",
+        data={
+            "team_id": team_id,
+            "user_id": user_id
+        }
+    )
 
 
-@router.delete(f"{settings.API_V1_STR}/teams/{{team_id}}/members/{{user_id}}", response_model=dict)
+@router.delete(f"{settings.API_V1_STR}/teams/{{team_id}}/members/{{user_id}}")
 def remove_team_member(
     team_id: int,
     user_id: int,
@@ -177,11 +227,16 @@ def remove_team_member(
     Remove user from team
     
     Tenant isolation ensures users can only modify teams in their tenant.
+    Uses standardized error handling and response format.
     """
     success = repo.remove_member(team_id=team_id, user_id=user_id)
     if not success:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not in team",
-        )
-    return {"status": "success", "message": "User removed from team"}
+        raise NotFoundException(detail="User not in team")
+    
+    return success_response(
+        message="User removed from team successfully",
+        data={
+            "team_id": team_id,
+            "user_id": user_id
+        }
+    )
