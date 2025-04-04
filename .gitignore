@@ -71,3 +71,7 @@ PROJECT_DOCS/*
 */PROJECT_DOCS/*
 backend/PROJECT_DOCS/*
 CLAUDE.md
+
+# Secrets
+secrets/*
+
