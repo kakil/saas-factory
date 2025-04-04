@@ -5,10 +5,9 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, select
 
 from app.core.db.base import Base
-from app.core.db.repository import BaseRepository
+from app.core.db.repository import BaseRepository, ModelType, CreateSchemaType, UpdateSchemaType
 
 T = TypeVar('T', bound=Base)
-ModelType = TypeVar('ModelType', bound=Base)
 SchemaType = TypeVar('SchemaType', bound=BaseModel)
 
 
@@ -48,7 +47,7 @@ class PaginatedResult(Generic[T]):
 
 
 def paginate_query(
-    repo: BaseRepository[ModelType],
+    repo: BaseRepository[ModelType, CreateSchemaType, UpdateSchemaType],
     params: PaginationParams,
     schema_cls: Type[SchemaType] = None,
     query_filter = None,

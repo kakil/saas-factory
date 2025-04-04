@@ -175,6 +175,9 @@ The project is containerized using Docker, making it easy to deploy to various h
 - **API Security**: RBAC with granular permissions
 - **Database Migrations**: Alembic migrations for version control
 
+## Context Priming
+Read README.md, CLAUDE.md, saas-factory/*, and run git ls-files to understand this codebase
+
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
