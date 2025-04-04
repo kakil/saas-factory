@@ -5,19 +5,32 @@
 # Get the directory where the script is located
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-# Check if environment variables are set
-if [ -z "$N8N_API_URL" ] || [ -z "$N8N_API_KEY" ]; then
-    echo "Error: N8N_API_URL and N8N_API_KEY environment variables must be set."
-    echo "You can source them from .env file: source .env"
-    exit 1
+# Get project root directory
+PROJECT_ROOT="$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")"
+
+# Check if API key is in env or read from secrets
+if [ -z "$N8N_API_KEY" ]; then
+    if [ -f "$PROJECT_ROOT/secrets/n8n_api_key.txt" ]; then
+        export N8N_API_KEY=$(cat "$PROJECT_ROOT/secrets/n8n_api_key.txt")
+    else
+        echo "Error: N8N_API_KEY environment variable not set and no secret found."
+        echo "Please run scripts/setup_n8n.sh first or source .env file: source .env"
+        exit 1
+    fi
+fi
+
+# Set API URL if not already set
+if [ -z "$N8N_API_URL" ]; then
+    export N8N_API_URL="http://localhost:5678/api/v1"
 fi
 
 # Make sure n8n is running
 echo "Checking if n8n is running..."
-curl -s -o /dev/null -w "%{http_code}" "$N8N_API_URL/healthz" | grep 200 > /dev/null
+curl -s -o /dev/null -w "%{http_code}" "http://localhost:5678" | grep 200 > /dev/null
 if [ $? -ne 0 ]; then
-    echo "Error: n8n is not running or not accessible at $N8N_API_URL"
+    echo "Error: n8n is not running or not accessible at http://localhost:5678"
     echo "Make sure n8n container is running: docker-compose up -d n8n"
+    echo "Wait a few seconds for n8n to start up completely."
     exit 1
 fi
 

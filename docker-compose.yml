@@ -1,5 +1,15 @@
 version: '3.8'
 
+secrets:
+  n8n_user:
+    file: ./secrets/n8n_user.txt
+  n8n_password:
+    file: ./secrets/n8n_password.txt
+  n8n_encryption_key:
+    file: ./secrets/n8n_encryption_key.txt
+  n8n_api_key:
+    file: ./secrets/n8n_api_key.txt
+
 services:
   db:
     image: postgres:15-alpine
@@ -67,40 +77,27 @@ services:
       - "5678:5678"
     environment:
       - N8N_BASIC_AUTH_ACTIVE=true
-      - N8N_BASIC_AUTH_USER=${N8N_USER}
-      - N8N_BASIC_AUTH_PASSWORD=${N8N_PASSWORD}
-      - N8N_PRODUCTION=true
+      - N8N_PRODUCTION=false
       - N8N_EDITOR_BASE_URL=http://localhost:5678
       - N8N_PROTOCOL=http
       - N8N_HOST=localhost
       - N8N_PORT=5678
       - N8N_WEBHOOK_TUNNEL_URL=http://n8n:5678/
-      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=${POSTGRES_DB}
-      - POSTGRES_HOST=db
-      - DB_TYPE=postgresdb
-      - DB_POSTGRESDB_HOST=db
-      - DB_POSTGRESDB_PORT=5432
-      - DB_POSTGRESDB_DATABASE=${POSTGRES_DB}
-      - DB_POSTGRESDB_USER=${POSTGRES_USER}
-      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD}
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - N8N_SMTP_HOST=${SMTP_HOST}
-      - N8N_SMTP_PORT=${SMTP_PORT}
-      - N8N_SMTP_USER=${SMTP_USER}
-      - N8N_SMTP_PASS=${SMTP_PASSWORD}
-      - N8N_SMTP_SENDER=${EMAILS_FROM_EMAIL}
-      - WEBHOOK_URL=http://backend:8000/api/v1/workflows/webhooks/n8n
-      - WEBHOOK_API_KEY=${N8N_API_KEY}
+      # Using SQLite for initial setup without database dependency
+      - DB_TYPE=sqlite
+      - N8N_BASIC_AUTH_USER_FILE=/run/secrets/n8n_user
+      - N8N_BASIC_AUTH_PASSWORD_FILE=/run/secrets/n8n_password
+      - N8N_ENCRYPTION_KEY_FILE=/run/secrets/n8n_encryption_key
+      - WEBHOOK_API_KEY_FILE=/run/secrets/n8n_api_key
+      # Disable secure cookie for local development
+      - N8N_SECURE_COOKIE=false
     volumes:
       - n8n_data:/home/node/.n8n
       - ./n8n:/tmp/workflows
-    depends_on:
-      - redis
-      - db
+      - ./secrets/n8n_user.txt:/run/secrets/n8n_user:ro
+      - ./secrets/n8n_password.txt:/run/secrets/n8n_password:ro
+      - ./secrets/n8n_encryption_key.txt:/run/secrets/n8n_encryption_key:ro
+      - ./secrets/n8n_api_key.txt:/run/secrets/n8n_api_key:ro
     restart: unless-stopped
 
 volumes:
