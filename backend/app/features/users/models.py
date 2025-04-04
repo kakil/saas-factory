@@ -1,4 +1,6 @@
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, JSON
+from datetime import datetime, timedelta
+import secrets
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, JSON, DateTime
 from sqlalchemy.orm import relationship
 
 from app.core.db.base import Base
@@ -19,6 +21,15 @@ class User(Base):
     organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=True)
     settings = Column(JSON, nullable=True)
     supabase_uid = Column(String, unique=True, index=True, nullable=True)  # Supabase User ID
+    
+    # Email verification
+    is_verified = Column(Boolean, default=False, nullable=False)
+    verification_token = Column(String, unique=True, index=True, nullable=True)
+    verification_token_expires = Column(DateTime, nullable=True)
+    
+    # Password reset
+    reset_token = Column(String, unique=True, index=True, nullable=True)
+    reset_token_expires = Column(DateTime, nullable=True)
 
     # Relationships
     organization = relationship("Organization", back_populates="members")
@@ -38,3 +49,65 @@ class User(Base):
 
     def __str__(self) -> str:
         return f"User(id={self.id}, email={self.email})"
+        
+    def generate_verification_token(self) -> str:
+        """
+        Generate a verification token for email verification.
+        
+        Returns:
+            The verification token
+        """
+        token = secrets.token_urlsafe(32)
+        self.verification_token = token
+        self.verification_token_expires = datetime.utcnow() + timedelta(hours=24)
+        self.is_verified = False
+        return token
+        
+    def verify_email(self, token: str) -> bool:
+        """
+        Verify the user's email with the given token.
+        
+        Args:
+            token: The verification token
+            
+        Returns:
+            Whether verification was successful
+        """
+        if (
+            self.verification_token == token and
+            self.verification_token_expires and
+            self.verification_token_expires > datetime.utcnow()
+        ):
+            self.is_verified = True
+            self.verification_token = None
+            self.verification_token_expires = None
+            return True
+        return False
+        
+    def generate_password_reset_token(self) -> str:
+        """
+        Generate a password reset token.
+        
+        Returns:
+            The password reset token
+        """
+        token = secrets.token_urlsafe(32)
+        self.reset_token = token
+        self.reset_token_expires = datetime.utcnow() + timedelta(hours=1)
+        return token
+        
+    def verify_password_reset_token(self, token: str) -> bool:
+        """
+        Verify the password reset token.
+        
+        Args:
+            token: The password reset token
+            
+        Returns:
+            Whether the token is valid
+        """
+        return (
+            self.reset_token == token and
+            self.reset_token_expires and
+            self.reset_token_expires > datetime.utcnow()
+        )

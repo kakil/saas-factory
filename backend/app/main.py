@@ -10,6 +10,7 @@ from app.features.auth.api import router as auth_router
 from app.features.users.api import router as users_router
 from app.features.teams.api import router as teams_router
 from app.features.workflows.api.router import router as workflows_router
+from app.features.onboarding.api import router as onboarding_router
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -44,6 +45,7 @@ app.include_router(auth_router, prefix=f"{settings.API_V1_STR}/auth", tags=["aut
 app.include_router(users_router, prefix=f"{settings.API_V1_STR}/users", tags=["users"])
 app.include_router(teams_router, prefix=f"{settings.API_V1_STR}", tags=["teams"])
 app.include_router(workflows_router, prefix=f"{settings.API_V1_STR}", tags=["workflows"])
+app.include_router(onboarding_router, prefix=f"{settings.API_V1_STR}/onboarding", tags=["onboarding"])
 
 
 @app.get("/")

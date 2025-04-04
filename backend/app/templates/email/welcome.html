@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to SaaS Factory</title>
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .logo {
+            max-width: 150px;
+            margin-bottom: 20px;
+        }
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+        .section {
+            margin-bottom: 30px;
+        }
+        .section h2 {
+            color: #3498db;
+            font-size: 20px;
+            margin-bottom: 15px;
+        }
+        .button {
+            display: inline-block;
+            background-color: #3498db;
+            color: white;
+            text-decoration: none;
+            padding: 12px 25px;
+            border-radius: 4px;
+            margin: 20px 0;
+            font-weight: bold;
+        }
+        .button:hover {
+            background-color: #2980b9;
+        }
+        .footer {
+            margin-top: 40px;
+            font-size: 12px;
+            color: #7f8c8d;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Welcome to SaaS Factory!</h1>
+    </div>
+    
+    <p>Hi {{ name }},</p>
+    
+    <p>Thank you for verifying your email address. Your account is now active, and you're ready to get started with SaaS Factory!</p>
+    
+    <div class="section">
+        <h2>Getting Started</h2>
+        <p>Here are a few things you can do to get started:</p>
+        <ul>
+            <li>Complete your profile</li>
+            <li>Explore the dashboard</li>
+            <li>Invite team members</li>
+            <li>Set up your first project</li>
+        </ul>
+    </div>
+    
+    <div class="section">
+        <h2>Your Account Information</h2>
+        <p><strong>Email:</strong> {{ email }}</p>
+        <p><strong>Account Type:</strong> {{ plan_name }}</p>
+        {% if team_name %}
+        <p><strong>Team:</strong> {{ team_name }}</p>
+        {% endif %}
+    </div>
+    
+    <p style="text-align: center;">
+        <a href="{{ dashboard_url }}" class="button">Go to Dashboard</a>
+    </p>
+    
+    <div class="section">
+        <h2>Need Help?</h2>
+        <p>If you have any questions or need assistance, please don't hesitate to contact our support team at <a href="mailto:support@example.com">support@example.com</a>.</p>
+    </div>
+    
+    <p>Best regards,<br>
+    The SaaS Factory Team</p>
+    
+    <div class="footer">
+        <p>© {{ year }} SaaS Factory. All rights reserved.</p>
+    </div>
+</body>
+</html>

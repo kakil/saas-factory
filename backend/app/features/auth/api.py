@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Request
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app.core.security.supabase import supabase_auth
@@ -93,11 +93,12 @@ async def refresh_token(refresh_data: RefreshToken):
 async def register(
         registration_data: UserRegistration,
         background_tasks: BackgroundTasks,
+        request: Request,
         user_service: UserService = Depends(get_user_service),
         organization_service: OrganizationService = Depends(get_organization_service),
 ):
     """
-    Register a new user with optional organization
+    Register a new user with optional organization and start onboarding flow
     """
     # First register with Supabase
     try:
@@ -136,6 +137,13 @@ async def register(
             user_create_data = registration_data.model_copy(exclude={"organization_name"})
             user = user_service.create_user(user_in=user_create_data)
 
+        # Start onboarding flow in background
+        background_tasks.add_task(
+            start_user_onboarding,
+            user_id=user.id,
+            base_url=str(request.base_url),
+        )
+
         return user
         
     except HTTPException:
@@ -145,3 +153,59 @@ async def register(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Registration failed: {str(e)}"
         )
+
+
+async def start_user_onboarding(user_id: int, base_url: str):
+    """
+    Background task to start the onboarding flow for a new user.
+    """
+    # Import inside the function to avoid circular imports
+    from app.features.onboarding.service import OnboardingService, get_onboarding_service
+    from fastapi import BackgroundTasks
+    
+    # Create a new background tasks object for this task
+    background_tasks = BackgroundTasks()
+    
+    # Get the onboarding service
+    # Create required dependencies manually since we're in a background task
+    from app.core.db.session import get_db, SessionLocal
+    from app.features.users.repository import get_user_repository
+    from app.features.users.service import get_user_service
+    from app.features.teams.service import get_team_service
+    from app.features.workflows.service.workflow_service import get_workflow_service
+    from app.core.utilities.email import get_email_service
+    
+    db = SessionLocal()
+    try:
+        email_service = get_email_service()
+        user_repository = get_user_repository(db)
+        user_service = get_user_service(user_repository, None, db)
+        team_service = get_team_service(db)
+        workflow_service = get_workflow_service()
+        
+        # Create the onboarding service
+        onboarding_service = OnboardingService(
+            email_service=email_service,
+            user_service=user_service,
+            team_service=team_service,
+            user_repository=user_repository,
+            workflow_service=workflow_service,
+            db=db,
+        )
+        
+        # Start the onboarding flow
+        await onboarding_service.start_onboarding_flow(
+            user_id=user_id,
+            background_tasks=background_tasks,
+            base_url=base_url,
+        )
+        
+        # Execute any background tasks created during the onboarding flow
+        await background_tasks()
+        
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error starting onboarding flow: {str(e)}")
+    finally:
+        db.close()
