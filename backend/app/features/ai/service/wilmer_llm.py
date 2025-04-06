@@ -31,7 +31,8 @@ class WilmerLLM(BaseLLM):
         self.headers = {
             "Content-Type": "application/json",
         }
-        if self.api_key:
+        # Only add Authorization header if API key is provided and not empty
+        if self.api_key and self.api_key.strip():
             self.headers["Authorization"] = f"Bearer {self.api_key}"
     
     async def generate_text(self, prompt: str, **kwargs) -> str:

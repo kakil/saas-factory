@@ -84,14 +84,18 @@ services:
     ports:
       - "8765:8765"
     environment:
-      - WILMER_API_KEY_FILE=/run/secrets/wilmer_api_key
+      # The following API keys are for third-party LLMs, not for WilmerAI itself
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
       - PYTHONUNBUFFERED=1
-    secrets:
-      - wilmer_api_key
+    # Optional: If you want to secure the WilmerAI API with a key
+    # Uncomment the following lines:
+    # environment:
+    #   - WILMER_API_KEY_FILE=/run/secrets/wilmer_api_key
+    # secrets:
+    #   - wilmer_api_key
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8765/health"]
       interval: 30s
