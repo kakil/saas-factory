@@ -1,0 +1,47 @@
+{
+  "name": "Content Generation Workflow",
+  "description": "Specialized workflow for generating marketing and blog content",
+  "version": "1.0",
+  "steps": [
+    {
+      "id": "content_planning",
+      "type": "model",
+      "model": "claude-3-sonnet",
+      "input": "Please outline the key points for the following content: {{input}}",
+      "system_prompt": "You are a content strategist. Help plan and outline content for marketing and blogs.",
+      "temperature": 0.7,
+      "next_step": "content_generation"
+    },
+    {
+      "id": "content_generation",
+      "type": "model",
+      "model": "claude-3-opus",
+      "input": "Create high-quality content based on this outline: {{content_planning.output}}\nOriginal request: {{input}}",
+      "system_prompt": "You are a professional content writer specializing in clear, engaging, and informative content.",
+      "temperature": 0.8,
+      "max_tokens": 2000,
+      "next_step": "output"
+    },
+    {
+      "id": "output",
+      "type": "output",
+      "value": "{{content_generation.output}}"
+    }
+  ],
+  "fallback": {
+    "if_step_fails": "content_generation",
+    "run_step": {
+      "id": "fallback_generation",
+      "type": "model",
+      "model": "gemini-pro",
+      "input": "Create high-quality content based on this outline: {{content_planning.output}}\nOriginal request: {{input}}",
+      "system_prompt": "You are a professional content writer specializing in clear, engaging, and informative content.",
+      "temperature": 0.8,
+      "next_step": "output_fallback"
+    }
+  },
+  "error_handling": {
+    "retry_count": 2,
+    "retry_delay": 1000
+  }
+}

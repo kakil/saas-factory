@@ -1,0 +1,37 @@
+{
+  "name": "General Purpose Workflow",
+  "description": "Default workflow for general queries",
+  "version": "1.0",
+  "steps": [
+    {
+      "id": "initial_processing",
+      "type": "model",
+      "model": "gemini-pro",
+      "input": "{{input}}",
+      "system_prompt": "You are a helpful assistant for the SaaS Factory platform. Answer questions clearly and concisely.",
+      "temperature": 0.7,
+      "next_step": "output"
+    },
+    {
+      "id": "output",
+      "type": "output",
+      "value": "{{initial_processing.output}}"
+    }
+  ],
+  "fallback": {
+    "if_step_fails": "initial_processing",
+    "run_step": {
+      "id": "fallback_processing",
+      "type": "model",
+      "model": "gpt-3.5-turbo",
+      "input": "{{input}}",
+      "system_prompt": "You are a helpful assistant for the SaaS Factory platform. Answer questions clearly and concisely.",
+      "temperature": 0.7,
+      "next_step": "output_fallback"
+    }
+  },
+  "error_handling": {
+    "retry_count": 2,
+    "retry_delay": 1000
+  }
+}

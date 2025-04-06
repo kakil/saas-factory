@@ -1,0 +1,55 @@
+{
+  "name": "Code Generation Workflow",
+  "description": "Specialized workflow for generating and explaining code",
+  "version": "1.0",
+  "steps": [
+    {
+      "id": "code_planning",
+      "type": "model",
+      "model": "gpt-4",
+      "input": "Plan the implementation for this code request: {{input}}",
+      "system_prompt": "You are a senior software architect. Plan the implementation approach for the requested code, considering best practices, design patterns, and potential edge cases.",
+      "temperature": 0.2,
+      "next_step": "code_generation"
+    },
+    {
+      "id": "code_generation",
+      "type": "model",
+      "model": "deepseek-coder",
+      "input": "Implement code following this plan: {{code_planning.output}}\nOriginal request: {{input}}",
+      "system_prompt": "You are an expert programmer. Generate clean, efficient, and well-documented code based on the requirements.",
+      "temperature": 0.2,
+      "next_step": "code_review"
+    },
+    {
+      "id": "code_review",
+      "type": "model", 
+      "model": "claude-3-sonnet",
+      "input": "Review this code for errors, edge cases, and improvements: {{code_generation.output}}",
+      "system_prompt": "You are a code reviewer focused on code quality, security, and performance. Suggest improvements but keep your suggestions concise.",
+      "temperature": 0.3,
+      "next_step": "output"
+    },
+    {
+      "id": "output",
+      "type": "output",
+      "value": "**Generated Code:**\n\n{{code_generation.output}}\n\n**Code Review:**\n\n{{code_review.output}}"
+    }
+  ],
+  "fallback": {
+    "if_step_fails": "code_generation",
+    "run_step": {
+      "id": "fallback_generation",
+      "type": "model",
+      "model": "gpt-4",
+      "input": "Implement code following this plan: {{code_planning.output}}\nOriginal request: {{input}}",
+      "system_prompt": "You are an expert programmer. Generate clean, efficient, and well-documented code based on the requirements.",
+      "temperature": 0.3,
+      "next_step": "code_review"
+    }
+  },
+  "error_handling": {
+    "retry_count": 1,
+    "retry_delay": 1000
+  }
+}

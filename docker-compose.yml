@@ -9,6 +9,8 @@ secrets:
     file: ./secrets/n8n_encryption_key.txt
   n8n_api_key:
     file: ./secrets/n8n_api_key.txt
+  wilmer_api_key:
+    file: ./secrets/wilmer_api_key.txt
 
 services:
   db:
@@ -71,6 +73,36 @@ services:
       timeout: 5s
       retries: 5
 
+  wilmerai:
+    build:
+      context: ./wilmerai
+      dockerfile: Dockerfile
+    volumes:
+      - ./wilmerai/config:/app/Public/Configs
+      - ./wilmerai/logs:/app/logs
+      - wilmerai_data:/app/data
+    ports:
+      - "8765:8765"
+    environment:
+      - WILMER_API_KEY_FILE=/run/secrets/wilmer_api_key
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - PYTHONUNBUFFERED=1
+    secrets:
+      - wilmer_api_key
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8765/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+
   n8n:
     image: n8nio/n8n
     ports:
@@ -104,3 +136,4 @@ volumes:
   postgres_data:
   redis_data:
   n8n_data:
+  wilmerai_data:
