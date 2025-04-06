@@ -1,0 +1,27 @@
+{% extends "email/notification_base.html" %}
+
+{% block content %}
+{% if team %}
+<div class="notification info">
+    <p><strong>Team:</strong> {{ team.name }}</p>
+    {% if team.description %}
+    <p><strong>Description:</strong> {{ team.description }}</p>
+    {% endif %}
+</div>
+{% endif %}
+
+{% if user %}
+<div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
+    <p style="margin: 0;">
+        <strong>{{ user.name }}</strong><br>
+        {{ user.email }}
+    </p>
+</div>
+{% endif %}
+
+{% if details %}
+<p>{{ details }}</p>
+{% endif %}
+
+<p>You can manage your team settings at any time from your dashboard.</p>
+{% endblock %}

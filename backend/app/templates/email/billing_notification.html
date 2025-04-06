@@ -1,0 +1,31 @@
+{% extends "email/notification_base.html" %}
+
+{% block content %}
+<table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+    <tr>
+        <th style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd;">Description</th>
+        <th style="text-align: right; padding: 8px; border-bottom: 1px solid #ddd;">Amount</th>
+    </tr>
+    {% if invoice_items %}
+        {% for item in invoice_items %}
+        <tr>
+            <td style="text-align: left; padding: 8px; border-bottom: 1px solid #eee;">{{ item.description }}</td>
+            <td style="text-align: right; padding: 8px; border-bottom: 1px solid #eee;">${{ item.amount }}</td>
+        </tr>
+        {% endfor %}
+        <tr>
+            <td style="text-align: left; padding: 8px; font-weight: bold;">Total</td>
+            <td style="text-align: right; padding: 8px; font-weight: bold;">${{ total_amount }}</td>
+        </tr>
+    {% endif %}
+</table>
+
+{% if details %}
+<div class="notification info">
+    <p><strong>Additional Information:</strong></p>
+    <p>{{ details }}</p>
+</div>
+{% endif %}
+
+<p>If you have any questions about this billing notification, please contact our billing team at billing@example.com.</p>
+{% endblock %}

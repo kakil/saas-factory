@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .logo {
+            max-width: 150px;
+            margin-bottom: 20px;
+        }
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+        .notification {
+            background-color: #f8f9fa;
+            border-left: 4px solid #3498db;
+            padding: 15px;
+            margin-bottom: 25px;
+        }
+        .alert {
+            border-left-color: #e74c3c;
+        }
+        .info {
+            border-left-color: #3498db;
+        }
+        .success {
+            border-left-color: #2ecc71;
+        }
+        .warning {
+            border-left-color: #f39c12;
+        }
+        .button {
+            display: inline-block;
+            background-color: #3498db;
+            color: white;
+            text-decoration: none;
+            padding: 12px 25px;
+            border-radius: 4px;
+            margin: 20px 0;
+            font-weight: bold;
+        }
+        .button:hover {
+            background-color: #2980b9;
+        }
+        .footer {
+            margin-top: 40px;
+            font-size: 12px;
+            color: #7f8c8d;
+            text-align: center;
+            border-top: 1px solid #eee;
+            padding-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>{{ title }}</h1>
+    </div>
+    
+    <div class="notification {% if type == 'alert' %}alert{% elif type == 'success' %}success{% elif type == 'warning' %}warning{% else %}info{% endif %}">
+        <p>{{ message }}</p>
+    </div>
+    
+    {% block content %}{% endblock %}
+    
+    {% if action_url %}
+    <p style="text-align: center;">
+        <a href="{{ action_url }}" class="button">{{ action_text or "View Details" }}</a>
+    </p>
+    {% endif %}
+    
+    <div class="footer">
+        <p>© {{ year }} SaaS Factory. All rights reserved.</p>
+        <p>You received this email because you're a user of SaaS Factory.</p>
+        <p>To manage your notification preferences, <a href="{{ preferences_url }}">click here</a>.</p>
+    </div>
+</body>
+</html>
