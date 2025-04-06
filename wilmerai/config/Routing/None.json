@@ -1,14 +1,13 @@
 {
-  "categories": [
-    {
-      "name": "general",
-      "description": "Default workflow for general queries",
-      "examples": [
-        "What is the meaning of life?",
-        "Tell me about the history of computers",
-        "How does photosynthesis work?"
-      ]
-    }
-  ],
+  "general": {
+    "name": "general",
+    "description": "Default workflow for general queries",
+    "workflow": "general",
+    "examples": [
+      "What is the meaning of life?",
+      "Tell me about the history of computers",
+      "How does photosynthesis work?"
+    ]
+  },
   "default_category": "general"
 }

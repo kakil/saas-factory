@@ -1,32 +1,33 @@
 {
-  "categories": [
-    {
-      "name": "general",
-      "description": "Default workflow for general queries",
-      "examples": [
-        "What is the meaning of life?",
-        "Tell me about the history of computers",
-        "How does photosynthesis work?"
-      ]
-    },
-    {
-      "name": "code_generation",
-      "description": "Generate code based on requirements",
-      "examples": [
-        "Write a Python function to sort a list",
-        "Create a React component for a login form",
-        "Write a SQL query to join two tables"
-      ]
-    },
-    {
-      "name": "content_generation",
-      "description": "Generate marketing content and creative writing",
-      "examples": [
-        "Write a blog post about AI",
-        "Create a product description for a new smartphone",
-        "Write a marketing email for a software launch"
-      ]
-    }
-  ],
+  "general": {
+    "name": "general",
+    "description": "Default workflow for general queries",
+    "workflow": "general",
+    "examples": [
+      "What is the meaning of life?",
+      "Tell me about the history of computers",
+      "How does photosynthesis work?"
+    ]
+  },
+  "code_generation": {
+    "name": "code_generation",
+    "description": "Generate code based on requirements",
+    "workflow": "code_generation",
+    "examples": [
+      "Write a Python function to sort a list",
+      "Create a React component for a login form",
+      "Write a SQL query to join two tables"
+    ]
+  },
+  "content_generation": {
+    "name": "content_generation",
+    "description": "Generate marketing content and creative writing",
+    "workflow": "content_generation",
+    "examples": [
+      "Write a blog post about AI",
+      "Create a product description for a new smartphone",
+      "Write a marketing email for a software launch"
+    ]
+  },
   "default_category": "general"
 }
