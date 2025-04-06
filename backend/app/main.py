@@ -12,6 +12,7 @@ from app.features.teams.api import router as teams_router
 from app.features.workflows.api.router import router as workflows_router
 from app.features.onboarding.api import router as onboarding_router
 from app.features.notifications.api.router import router as notifications_router
+from app.features.billing.api import router as billing_router
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -48,6 +49,7 @@ app.include_router(teams_router, prefix=f"{settings.API_V1_STR}", tags=["teams"]
 app.include_router(workflows_router, prefix=f"{settings.API_V1_STR}", tags=["workflows"])
 app.include_router(onboarding_router, prefix=f"{settings.API_V1_STR}/onboarding", tags=["onboarding"])
 app.include_router(notifications_router, prefix=f"{settings.API_V1_STR}/notifications", tags=["notifications"])
+app.include_router(billing_router, prefix=f"{settings.API_V1_STR}/billing", tags=["billing"])
 
 
 @app.get("/")
