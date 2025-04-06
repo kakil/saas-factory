@@ -21,10 +21,13 @@ RUN pip install --no-cache-dir -r requirements.txt
 RUN mkdir -p \
     logs \
     Public/Configs \
+    Public/Configs/Users \
+    Public/Configs/workflows \
     Public/KnowledgeBases
 
 # Copy custom configuration files
 COPY ./config/wilmer.ini Public/Configs/
+COPY ./config/Users/*.json Public/Configs/Users/
 COPY ./config/workflows/*.json Public/Configs/workflows/
 
 # Expose the port

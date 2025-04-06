@@ -1,0 +1,45 @@
+{
+  "username": "default",
+  "useFileLogging": true,
+  "modelsFolder": "models",
+  "useSimplifiedChatOutput": false,
+  "history": {
+    "useMemory": true,
+    "clearMemoryOnNewRequest": false,
+    "maxMemoryLength": 20,
+    "memorySummaryPrompt": "Please provide a concise summary of this chat conversation, hitting the most important points that would be useful context for continuing the conversation. Do not include unnecessary details or be overly verbose."
+  },
+  "streamingSettings": {
+    "useStreaming": false,
+    "streamingModel": "openai/gpt-3.5-turbo",
+    "streamingChunkSize": 8
+  },
+  "rag": {
+    "enabled": false,
+    "vectorStoreType": "faiss",
+    "vectorStorePath": "vectorstore",
+    "chunkSize": 1000,
+    "chunkOverlap": 200,
+    "retrievalPrompt": "Given the context information provided and no prior knowledge, answer the question.\n\nContext:\n{context}\n\nQuestion:\n{question}",
+    "embeddingModel": "all-MiniLM-L6-v2",
+    "topK": 4
+  },
+  "api": {
+    "host": "0.0.0.0",
+    "port": 8765,
+    "enableRateLimiting": true,
+    "requestsPerMinute": 60
+  },
+  "defaultProviders": {
+    "chat": "google",
+    "embeddings": "local",
+    "vision": "google"
+  },
+  "systemPrompts": {
+    "default": "You are a helpful assistant."
+  },
+  "tools": {
+    "enabled": false,
+    "definitions": {}
+  }
+}

@@ -79,6 +79,8 @@ services:
       dockerfile: Dockerfile
     volumes:
       - ./wilmerai/config:/app/Public/Configs
+      - ./wilmerai/config/Users:/app/Public/Configs/Users
+      - ./wilmerai/config/workflows:/app/Public/Configs/workflows
       - ./wilmerai/logs:/app/logs
       - wilmerai_data:/app/data
     ports:
