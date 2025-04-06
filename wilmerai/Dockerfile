@@ -23,12 +23,15 @@ RUN mkdir -p \
     Public/Configs \
     Public/Configs/Users \
     Public/Configs/workflows \
+    Public/Configs/Routing \
     Public/KnowledgeBases
 
 # Copy custom configuration files
 COPY ./config/wilmer.ini Public/Configs/
+COPY ./config/categories_config.json Public/Configs/
 COPY ./config/Users/*.json Public/Configs/Users/
 COPY ./config/workflows/*.json Public/Configs/workflows/
+COPY ./config/Routing/*.json Public/Configs/Routing/
 
 # Expose the port
 EXPOSE 8765

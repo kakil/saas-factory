@@ -81,6 +81,7 @@ services:
       - ./wilmerai/config:/app/Public/Configs
       - ./wilmerai/config/Users:/app/Public/Configs/Users
       - ./wilmerai/config/workflows:/app/Public/Configs/workflows
+      - ./wilmerai/config/Routing:/app/Public/Configs/Routing
       - ./wilmerai/logs:/app/logs
       - wilmerai_data:/app/data
     ports:
