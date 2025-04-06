@@ -1,6 +1,6 @@
 import logging
-from datetime import datetime
-from typing import Any, Dict, List, Optional, Union
+from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional, Union, Tuple
 
 import stripe
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,10 +9,13 @@ from sqlalchemy.orm import selectinload
 
 from app.core.db.session import get_db
 from app.features.billing.models.subscription import Subscription, SubscriptionItem, SubscriptionStatus
-from app.features.billing.models.customer import Customer
+from app.features.billing.models.customer import Customer, CustomerTier
 from app.features.billing.models.price import Price
+from app.features.billing.models.plan import Plan
 from app.features.billing.repository.subscription_repository import SubscriptionRepository
 from app.features.billing.repository.customer_repository import CustomerRepository
+from app.features.billing.repository.plan_repository import PlanRepository
+from app.features.billing.repository.price_repository import PriceRepository
 from app.features.billing.service.stripe_service import StripeService
 
 logger = logging.getLogger(__name__)
@@ -29,12 +32,16 @@ class SubscriptionService:
         db: AsyncSession, 
         stripe_service: StripeService,
         subscription_repository: SubscriptionRepository,
-        customer_repository: CustomerRepository
+        customer_repository: CustomerRepository,
+        plan_repository: PlanRepository,
+        price_repository: PriceRepository
     ):
         self.db = db
         self.stripe_service = stripe_service
         self.subscription_repository = subscription_repository
         self.customer_repository = customer_repository
+        self.plan_repository = plan_repository
+        self.price_repository = price_repository
     
     async def create_subscription(
         self,
@@ -429,3 +436,378 @@ class SubscriptionService:
         
         logger.info(f"Trial ending for subscription {subscription.id}")
         return True
+        
+    async def upgrade_subscription(
+        self,
+        subscription_id: int,
+        plan_id: int,
+        effective_date: Optional[datetime] = None,
+        prorate: bool = True,
+        maintain_trial: bool = True
+    ) -> Subscription:
+        """
+        Upgrade or downgrade a subscription to a different plan
+        
+        Args:
+            subscription_id: ID of the subscription to upgrade
+            plan_id: ID of the new plan
+            effective_date: When the change should take effect (default: immediate)
+            prorate: Whether to prorate charges for the remainder of the billing period
+            maintain_trial: Whether to maintain the trial period if applicable
+            
+        Returns:
+            Updated subscription
+            
+        Raises:
+            ValueError: If subscription or plan doesn't exist
+        """
+        # Get subscription with items
+        subscription = await self.subscription_repository.get_with_items(subscription_id)
+        if not subscription:
+            raise ValueError(f"Subscription with ID {subscription_id} not found")
+            
+        # Get plan
+        plan = await self.plan_repository.get(plan_id)
+        if not plan:
+            raise ValueError(f"Plan with ID {plan_id} not found")
+            
+        # Get default price for the plan
+        stmt = select(Price).where(Price.plan_id == plan_id, Price.is_active == True)
+        result = await self.db.execute(stmt)
+        price = result.scalars().first()
+        
+        if not price:
+            raise ValueError(f"No active price found for plan with ID {plan_id}")
+            
+        # Get current subscription item - assuming there's only one
+        if not subscription.items or len(subscription.items) == 0:
+            raise ValueError(f"Subscription {subscription_id} has no items")
+            
+        current_item = subscription.items[0]
+            
+        try:
+            # Determine effective date timestamp
+            effective_timestamp = None
+            if effective_date:
+                effective_timestamp = int(effective_date.timestamp())
+                
+            # For Stripe, create an item replacement
+            stripe_updates = {
+                "items": [
+                    {
+                        "id": current_item.stripe_subscription_item_id, 
+                        "deleted": True
+                    },
+                    {
+                        "price": price.stripe_price_id,
+                        "quantity": current_item.quantity
+                    }
+                ],
+                "proration_behavior": "create_prorations" if prorate else "none",
+            }
+            
+            # If effective date is provided, use it
+            if effective_timestamp:
+                stripe_updates["proration_date"] = effective_timestamp
+                
+            # If maintaining trial, add it to the updates
+            if maintain_trial and subscription.trial_end:
+                stripe_updates["trial_end"] = int(subscription.trial_end.timestamp())
+                
+            # Update subscription in Stripe
+            stripe_subscription = self.stripe_service.update_subscription(
+                subscription.stripe_subscription_id,
+                **stripe_updates
+            )
+            
+            # Update subscription items in our database
+            # First mark the existing item as deleted
+            await self.db.execute(
+                update(SubscriptionItem)
+                .where(SubscriptionItem.id == current_item.id)
+                .values(updated_at=datetime.now())
+            )
+            
+            # Create new item from Stripe response
+            for item in stripe_subscription["items"]["data"]:
+                if not item.get("deleted", False):
+                    # This is the new item
+                    new_item = SubscriptionItem(
+                        subscription_id=subscription.id,
+                        price_id=price.id,
+                        stripe_subscription_item_id=item["id"],
+                        quantity=item["quantity"],
+                        metadata={}
+                    )
+                    
+                    self.db.add(new_item)
+            
+            # Update customer tier based on plan
+            customer = await self.customer_repository.get(subscription.customer_id)
+            if customer and plan.tier != customer.tier:
+                await self.customer_repository.update(customer.id, tier=plan.tier)
+                
+            # Sync subscription from Stripe to update status and dates
+            updated_subscription = await self.sync_subscription(subscription.stripe_subscription_id)
+            
+            await self.db.commit()
+            return updated_subscription
+            
+        except stripe.error.StripeError as e:
+            logger.error(f"Failed to upgrade subscription in Stripe: {str(e)}")
+            raise ValueError(f"Stripe error: {str(e)}")
+            
+    async def schedule_subscription_update(
+        self,
+        subscription_id: int,
+        plan_id: int,
+        scheduled_date: datetime,
+        prorate: bool = True
+    ) -> Dict[str, Any]:
+        """
+        Schedule a subscription update for a future date
+        
+        Args:
+            subscription_id: ID of the subscription to update
+            plan_id: ID of the new plan
+            scheduled_date: When the change should take effect
+            prorate: Whether to prorate charges
+            
+        Returns:
+            Scheduled update information
+            
+        Raises:
+            ValueError: If subscription or plan doesn't exist
+        """
+        # Get subscription
+        subscription = await self.subscription_repository.get(subscription_id)
+        if not subscription:
+            raise ValueError(f"Subscription with ID {subscription_id} not found")
+            
+        # Get plan
+        plan = await self.plan_repository.get(plan_id)
+        if not plan:
+            raise ValueError(f"Plan with ID {plan_id} not found")
+            
+        # Get default price for the plan
+        stmt = select(Price).where(Price.plan_id == plan_id, Price.is_active == True)
+        result = await self.db.execute(stmt)
+        price = result.scalars().first()
+        
+        if not price:
+            raise ValueError(f"No active price found for plan with ID {plan_id}")
+            
+        try:
+            # Schedule update in Stripe
+            scheduled_update = self.stripe_service.create_subscription_schedule(
+                stripe_subscription_id=subscription.stripe_subscription_id,
+                start_date=int(scheduled_date.timestamp()),
+                price_id=price.stripe_price_id,
+                proration_behavior="create_prorations" if prorate else "none"
+            )
+            
+            # Store the schedule info in subscription metadata
+            metadata = subscription.metadata or {}
+            metadata["scheduled_update"] = {
+                "schedule_id": scheduled_update.get("id"),
+                "plan_id": plan_id,
+                "price_id": price.id,
+                "scheduled_date": scheduled_date.isoformat(),
+                "created_at": datetime.now().isoformat()
+            }
+            
+            await self.subscription_repository.update(
+                subscription_id,
+                metadata=metadata
+            )
+            
+            return {
+                "subscription_id": subscription_id,
+                "plan_id": plan_id,
+                "scheduled_date": scheduled_date,
+                "schedule_id": scheduled_update.get("id")
+            }
+            
+        except stripe.error.StripeError as e:
+            logger.error(f"Failed to schedule subscription update in Stripe: {str(e)}")
+            raise ValueError(f"Stripe error: {str(e)}")
+            
+    async def handle_subscription_renewing(self, stripe_subscription_id: str) -> bool:
+        """
+        Handle subscription renewing soon notification
+        
+        Args:
+            stripe_subscription_id: Stripe subscription ID
+            
+        Returns:
+            Success flag
+        """
+        # Find subscription
+        subscription = await self.get_subscription_by_stripe_id(stripe_subscription_id)
+        if not subscription:
+            logger.warning(f"Subscription with Stripe ID {stripe_subscription_id} not found in database")
+            return False
+            
+        # Get customer
+        customer = await self.customer_repository.get(subscription.customer_id)
+        if not customer:
+            logger.warning(f"Customer for subscription {subscription_id} not found")
+            return False
+            
+        # TODO: Send notification to customer about upcoming renewal
+        
+        # Get subscription item details
+        if not subscription.items or len(subscription.items) == 0:
+            logger.warning(f"Subscription {subscription.id} has no items")
+            return False
+            
+        item = subscription.items[0]
+        price = await self.price_repository.get(item.price_id)
+        if not price:
+            logger.warning(f"Price for subscription item {item.id} not found")
+            return False
+            
+        renewal_date = subscription.current_period_end
+        renewal_amount = price.amount * item.quantity
+            
+        logger.info(f"Subscription {subscription.id} renewing on {renewal_date} for {renewal_amount}")
+        return True
+        
+    async def handle_payment_failed(self, stripe_subscription_id: str) -> bool:
+        """
+        Handle payment failed event for a subscription
+        
+        Args:
+            stripe_subscription_id: Stripe subscription ID
+            
+        Returns:
+            Success flag
+        """
+        # Find subscription
+        subscription = await self.get_subscription_by_stripe_id(stripe_subscription_id)
+        if not subscription:
+            logger.warning(f"Subscription with Stripe ID {stripe_subscription_id} not found in database")
+            return False
+            
+        # Get latest status from Stripe
+        try:
+            stripe_subscription = self.stripe_service.get_subscription(stripe_subscription_id)
+            
+            # Update subscription status
+            await self.subscription_repository.update(
+                subscription.id,
+                status=stripe_subscription["status"]
+            )
+            
+            # If past_due, send notification to customer
+            if stripe_subscription["status"] == SubscriptionStatus.PAST_DUE:
+                # TODO: Send payment failed notification
+                pass
+                
+            return True
+            
+        except stripe.error.StripeError as e:
+            logger.error(f"Failed to get subscription from Stripe: {str(e)}")
+            return False
+            
+    async def reactivate_subscription(self, subscription_id: int) -> Subscription:
+        """
+        Reactivate a canceled subscription that is still within its period
+        
+        Args:
+            subscription_id: Subscription ID
+            
+        Returns:
+            Reactivated subscription
+            
+        Raises:
+            ValueError: If subscription doesn't exist or can't be reactivated
+        """
+        # Get subscription
+        subscription = await self.subscription_repository.get(subscription_id)
+        if not subscription:
+            raise ValueError(f"Subscription with ID {subscription_id} not found")
+            
+        # Check if subscription can be reactivated
+        if subscription.status != SubscriptionStatus.CANCELED:
+            raise ValueError(f"Subscription is not canceled, current status: {subscription.status}")
+            
+        # Check if still within period
+        if subscription.current_period_end and subscription.current_period_end < datetime.now():
+            raise ValueError("Subscription period has already ended, cannot reactivate")
+            
+        try:
+            # Reactivate in Stripe
+            stripe_subscription = self.stripe_service.update_subscription(
+                subscription.stripe_subscription_id,
+                cancel_at_period_end=False
+            )
+            
+            # Update local subscription
+            update_data = {
+                "status": stripe_subscription["status"],
+                "is_auto_renew": True,
+                "canceled_at": None
+            }
+            
+            updated_subscription = await self.subscription_repository.update(
+                subscription_id,
+                **update_data
+            )
+            
+            return updated_subscription
+            
+        except stripe.error.StripeError as e:
+            logger.error(f"Failed to reactivate subscription in Stripe: {str(e)}")
+            raise ValueError(f"Stripe error: {str(e)}")
+            
+    async def apply_coupon_to_subscription(
+        self,
+        subscription_id: int,
+        coupon_code: str
+    ) -> Subscription:
+        """
+        Apply a coupon to an existing subscription
+        
+        Args:
+            subscription_id: Subscription ID
+            coupon_code: Coupon code to apply
+            
+        Returns:
+            Updated subscription
+            
+        Raises:
+            ValueError: If subscription doesn't exist or coupon is invalid
+        """
+        # Get subscription
+        subscription = await self.subscription_repository.get(subscription_id)
+        if not subscription:
+            raise ValueError(f"Subscription with ID {subscription_id} not found")
+            
+        try:
+            # Apply coupon in Stripe
+            stripe_subscription = self.stripe_service.update_subscription(
+                subscription.stripe_subscription_id,
+                coupon=coupon_code
+            )
+            
+            # Sync subscription from Stripe
+            updated_subscription = await self.sync_subscription(subscription.stripe_subscription_id)
+            
+            # Add coupon info to metadata
+            metadata = updated_subscription.metadata or {}
+            metadata["applied_coupon"] = {
+                "code": coupon_code,
+                "applied_at": datetime.now().isoformat()
+            }
+            
+            updated_subscription = await self.subscription_repository.update(
+                subscription_id,
+                metadata=metadata
+            )
+            
+            return updated_subscription
+            
+        except stripe.error.StripeError as e:
+            logger.error(f"Failed to apply coupon to subscription in Stripe: {str(e)}")
+            raise ValueError(f"Stripe error: {str(e)}")

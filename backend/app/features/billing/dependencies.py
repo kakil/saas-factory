@@ -13,6 +13,7 @@ from app.features.billing.repository.plan_repository import PlanRepository
 from app.features.billing.repository.subscription_repository import SubscriptionRepository
 from app.features.billing.repository.invoice_repository import InvoiceRepository
 from app.features.billing.repository.payment_repository import PaymentRepository
+from app.features.billing.repository.price_repository import PriceRepository
 
 
 # Stripe service
@@ -41,13 +42,23 @@ def get_payment_repository(db: AsyncSession = Depends(get_db)) -> PaymentReposit
     return PaymentRepository(db)
 
 
+def get_price_repository(db: AsyncSession = Depends(get_db)) -> PriceRepository:
+    return PriceRepository(db)
+
+
 # Services
 def get_customer_service(
     db: AsyncSession = Depends(get_db),
     stripe_service: StripeService = Depends(get_stripe_service),
     customer_repository: CustomerRepository = Depends(get_customer_repository),
+    subscription_repository: SubscriptionRepository = Depends(get_subscription_repository),
+    invoice_repository: InvoiceRepository = Depends(get_invoice_repository),
 ) -> CustomerService:
-    return CustomerService(db, stripe_service, customer_repository)
+    service = CustomerService(db, stripe_service, customer_repository)
+    # Add additional repositories as attributes
+    service.subscription_repository = subscription_repository
+    service.invoice_repository = invoice_repository
+    return service
 
 
 def get_plan_service(
@@ -63,8 +74,17 @@ def get_subscription_service(
     stripe_service: StripeService = Depends(get_stripe_service),
     subscription_repository: SubscriptionRepository = Depends(get_subscription_repository),
     customer_repository: CustomerRepository = Depends(get_customer_repository),
+    plan_repository: PlanRepository = Depends(get_plan_repository),
+    price_repository: PriceRepository = Depends(get_price_repository),
 ) -> SubscriptionService:
-    return SubscriptionService(db, stripe_service, subscription_repository, customer_repository)
+    return SubscriptionService(
+        db, 
+        stripe_service, 
+        subscription_repository, 
+        customer_repository,
+        plan_repository,
+        price_repository
+    )
 
 
 def get_invoice_service(

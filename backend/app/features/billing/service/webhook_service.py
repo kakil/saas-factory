@@ -109,6 +109,19 @@ class WebhookService:
             elif event_type == "customer.subscription.trial_will_end":
                 # Handle trial ending soon (3 days before)
                 await self.subscription_service.handle_trial_ending(event_data.id)
+            elif event_type == "customer.subscription.pending_update_applied":
+                # Handle when a scheduled subscription update is applied
+                await self.subscription_service.sync_subscription(event_data.id)
+            elif event_type == "customer.subscription.pending_update_expired":
+                # Handle when a scheduled subscription update expires
+                await self.subscription_service.sync_subscription(event_data.id)
+            elif event_type == "customer.subscription.payment_failed":
+                # Handle when a subscription payment fails
+                await self.subscription_service.handle_payment_failed(event_data.id)
+            elif event_type == "invoice.upcoming":
+                # Handle upcoming invoice - this can be used for renewal notifications
+                if event_data.get('subscription'):
+                    await self.subscription_service.handle_subscription_renewing(event_data.subscription)
         
         # Invoice events
         elif event_type.startswith("invoice"):

@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional, Union
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.features.billing.models.subscription import SubscriptionStatus
 
@@ -25,6 +25,26 @@ class SubscriptionUpdate(BaseModel):
     """Schema for updating a subscription"""
     is_auto_renew: Optional[bool] = None
     metadata: Optional[Dict[str, Any]] = None
+    
+    
+class SubscriptionUpgrade(BaseModel):
+    """Schema for upgrading or downgrading a subscription"""
+    plan_id: int
+    effective_date: Optional[datetime] = None
+    prorate: bool = True
+    maintain_trial: bool = True
+    
+    
+class SubscriptionSchedule(BaseModel):
+    """Schema for scheduling a future subscription update"""
+    plan_id: int
+    scheduled_date: datetime
+    prorate: bool = True
+    
+    
+class CouponApply(BaseModel):
+    """Schema for applying a coupon to a subscription"""
+    coupon_code: str = Field(..., min_length=1)
 
 
 class SubscriptionItemResponse(BaseModel):

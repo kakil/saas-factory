@@ -1,7 +1,11 @@
+import logging
 import stripe
+from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Union
 
 from app.core.config.settings import settings
+
+logger = logging.getLogger(__name__)
 
 
 class StripeService:
@@ -559,6 +563,201 @@ class StripeService:
             )
         except (ValueError, stripe.error.SignatureVerificationError) as e:
             raise ValueError(f"Invalid signature: {str(e)}")
+    
+    # Subscription Schedules
+    def create_subscription_schedule(
+        self, 
+        stripe_subscription_id: Optional[str] = None,
+        customer_id: Optional[str] = None,
+        start_date: Optional[int] = None,
+        end_behavior: str = "release",
+        phases: Optional[List[Dict[str, Any]]] = None,
+        price_id: Optional[str] = None,
+        quantity: int = 1,
+        proration_behavior: str = "create_prorations",
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        Create a subscription schedule for future plan changes
+        
+        Args:
+            stripe_subscription_id: Existing subscription ID to schedule changes for (optional)
+            customer_id: Stripe customer ID for new schedules (required if no subscription_id)
+            start_date: When the schedule should start (timestamp)
+            end_behavior: What to do when schedule ends ('release' or 'cancel')
+            phases: Schedule phases configuration (optional)
+            price_id: Price ID to use (if creating a simple schedule)
+            quantity: Quantity for the price (default: 1)
+            proration_behavior: How to handle prorations ('create_prorations' or 'none')
+            metadata: Additional metadata (optional)
+            
+        Returns:
+            Subscription schedule object
+        """
+        # If we're scheduling a change to an existing subscription
+        if stripe_subscription_id:
+            # Get current subscription details
+            subscription = stripe.Subscription.retrieve(stripe_subscription_id)
+            customer_id = subscription["customer"]
+            
+            # If no start date provided, default to end of current period
+            if not start_date:
+                start_date = subscription["current_period_end"]
+                
+            # If no phases provided, build phases from current subscription
+            if not phases:
+                if not price_id:
+                    raise ValueError("Either phases or price_id must be provided for subscription schedule")
+                
+                # Create a simple two-phase schedule
+                current_items = [{
+                    "price": item["price"]["id"],
+                    "quantity": item["quantity"]
+                } for item in subscription["items"]["data"]]
+                
+                # Current phase - from now until start_date
+                current_phase = {
+                    "items": current_items,
+                    "start_date": "now",
+                    "end_date": start_date,
+                    "proration_behavior": "none"
+                }
+                
+                # New phase - from start_date onward
+                new_phase = {
+                    "items": [{
+                        "price": price_id,
+                        "quantity": quantity
+                    }],
+                    "proration_behavior": proration_behavior
+                }
+                
+                phases = [current_phase, new_phase]
+        else:
+            # For brand new scheduled subscriptions
+            if not customer_id:
+                raise ValueError("Customer ID is required for new subscription schedules")
+                
+            if not phases and not price_id:
+                raise ValueError("Either phases or price_id must be provided for subscription schedule")
+                
+            # If no phases but price_id is provided, create a simple one-phase schedule
+            if not phases:
+                start_date = start_date or int(datetime.now().timestamp())
+                
+                phases = [{
+                    "items": [{
+                        "price": price_id,
+                        "quantity": quantity
+                    }],
+                    "start_date": start_date,
+                    "proration_behavior": proration_behavior
+                }]
+        
+        # Create the schedule
+        schedule_data = {
+            "customer": customer_id,
+            "start_date": phases[0]["start_date"],
+            "end_behavior": end_behavior,
+            "phases": phases,
+            "metadata": metadata or {}
+        }
+        
+        # If we're basing this on an existing subscription
+        if stripe_subscription_id:
+            schedule_data["from_subscription"] = stripe_subscription_id
+            
+        return stripe.SubscriptionSchedule.create(**schedule_data)
+    
+    def update_subscription_schedule(self, schedule_id: str, **kwargs) -> Dict[str, Any]:
+        """
+        Update an existing subscription schedule
+        
+        Args:
+            schedule_id: Subscription schedule ID
+            **kwargs: Fields to update
+            
+        Returns:
+            Updated subscription schedule object
+        """
+        return stripe.SubscriptionSchedule.modify(schedule_id, **kwargs)
+    
+    def cancel_subscription_schedule(self, schedule_id: str) -> Dict[str, Any]:
+        """
+        Cancel a subscription schedule
+        
+        Args:
+            schedule_id: Subscription schedule ID
+            
+        Returns:
+            Canceled subscription schedule object
+        """
+        return stripe.SubscriptionSchedule.release(schedule_id)
+    
+    def get_subscription_schedule(self, schedule_id: str) -> Dict[str, Any]:
+        """
+        Retrieve a subscription schedule from Stripe
+        
+        Args:
+            schedule_id: Subscription schedule ID
+            
+        Returns:
+            Subscription schedule object
+        """
+        return stripe.SubscriptionSchedule.retrieve(schedule_id)
+    
+    def list_subscription_schedules(self, customer_id: Optional[str] = None, limit: int = 100) -> List[Dict[str, Any]]:
+        """
+        List subscription schedules
+        
+        Args:
+            customer_id: Filter by customer ID (optional)
+            limit: Maximum number of schedules to return
+            
+        Returns:
+            List of subscription schedules
+        """
+        params = {"limit": limit}
+        
+        if customer_id:
+            params["customer"] = customer_id
+            
+        return stripe.SubscriptionSchedule.list(**params)
+        
+    # Usage Records for Usage-Based Billing
+    def create_usage_record(self, subscription_item_id: str, quantity: int, timestamp: Optional[int] = None) -> Dict[str, Any]:
+        """
+        Create a usage record for metered billing
+        
+        Args:
+            subscription_item_id: Stripe subscription item ID
+            quantity: Usage quantity to report
+            timestamp: When the usage occurred (optional)
+            
+        Returns:
+            Usage record object
+        """
+        usage_data = {
+            "quantity": quantity,
+            "action": "increment"
+        }
+        
+        if timestamp:
+            usage_data["timestamp"] = timestamp
+            
+        return stripe.SubscriptionItem.create_usage_record(subscription_item_id, **usage_data)
+    
+    def list_usage_records(self, subscription_item_id: str) -> List[Dict[str, Any]]:
+        """
+        List usage records for a subscription item
+        
+        Args:
+            subscription_item_id: Stripe subscription item ID
+            
+        Returns:
+            List of usage records
+        """
+        return stripe.SubscriptionItem.list_usage_record_summaries(subscription_item_id)
     
     # Error handling
     def handle_stripe_error(self, error: stripe.error.StripeError) -> Dict[str, Any]:

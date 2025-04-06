@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.features.billing.api.endpoints import plans, customers, subscriptions, invoices, payments, webhooks
+from app.features.billing.api.endpoints import plans, customers, subscriptions, invoices, payments, webhooks, organizations
 
 router = APIRouter()
 
@@ -10,3 +10,4 @@ router.include_router(subscriptions.router, prefix="/subscriptions", tags=["subs
 router.include_router(invoices.router, prefix="/invoices", tags=["invoices"])
 router.include_router(payments.router, prefix="/payments", tags=["payments"])
 router.include_router(webhooks.router, prefix="/webhooks", tags=["webhooks"])
+router.include_router(organizations.router, prefix="/organizations", tags=["organizations"])

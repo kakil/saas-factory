@@ -1,16 +1,17 @@
 import logging
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, Tuple
 
 import stripe
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, joinedload
 
 from app.core.db.session import get_db
 from app.features.billing.models.customer import Customer, CustomerTier
 from app.features.billing.repository.customer_repository import CustomerRepository
 from app.features.billing.service.stripe_service import StripeService
-from app.features.teams.models import Organization
+from app.features.teams.models import Organization, Team
+from app.features.users.models import User
 
 logger = logging.getLogger(__name__)
 
@@ -306,3 +307,131 @@ class CustomerService:
         except Exception as e:
             logger.error(f"Failed to handle payment method detachment: {str(e)}")
             return False
+    
+    async def get_organization_billing_info(self, organization_id: int) -> Dict[str, Any]:
+        """
+        Get comprehensive billing information for an organization
+        
+        Args:
+            organization_id: Organization ID
+            
+        Returns:
+            Dictionary with billing information
+            
+        Raises:
+            ValueError: If organization doesn't exist or isn't associated with a customer
+        """
+        # Get organization with teams and members
+        stmt = select(Organization).where(Organization.id == organization_id).options(
+            selectinload(Organization.teams).selectinload(Team.members)
+        )
+        result = await self.db.execute(stmt)
+        organization = result.scalars().first()
+        
+        if not organization:
+            raise ValueError(f"Organization with ID {organization_id} not found")
+        
+        # Get customer
+        customer = await self.customer_repository.get_by_organization_id(organization_id)
+        if not customer:
+            # Create customer if it doesn't exist
+            customer = await self.get_or_create_customer(organization_id)
+        
+        # Get subscription information from subscription repository
+        if hasattr(self, 'subscription_repository'):
+            subscriptions = await self.subscription_repository.list_by_customer(customer.id)
+            active_subscription = next((s for s in subscriptions if s.status in ["active", "trialing"]), None)
+        else:
+            subscriptions = []
+            active_subscription = None
+        
+        # Get invoices from invoice repository
+        if hasattr(self, 'invoice_repository'):
+            invoices = await self.invoice_repository.list_by_customer(customer.id, limit=5)
+        else:
+            invoices = []
+        
+        # Get payment methods
+        payment_methods = []
+        if customer.stripe_customer_id:
+            try:
+                stripe_payment_methods = self.stripe_service.list_payment_methods(customer.stripe_customer_id)
+                payment_methods = stripe_payment_methods.get("data", [])
+            except stripe.error.StripeError as e:
+                logger.error(f"Failed to get payment methods: {str(e)}")
+        
+        # Build response
+        billing_info = {
+            "customer": {
+                "id": customer.id,
+                "tier": customer.tier,
+                "billing_name": customer.billing_name,
+                "billing_email": customer.billing_email,
+                "default_payment_method_id": customer.default_payment_method_id,
+            },
+            "organization": {
+                "id": organization.id,
+                "name": organization.name,
+                "teams_count": len(organization.teams),
+                "members_count": sum(len(team.members) for team in organization.teams),
+            },
+            "subscription": {
+                "active": active_subscription is not None,
+                "status": active_subscription.status if active_subscription else None,
+                "period_end": active_subscription.current_period_end if active_subscription else None,
+                "trial_end": active_subscription.trial_end if active_subscription and active_subscription.trial_end else None,
+                "auto_renew": active_subscription.is_auto_renew if active_subscription else None,
+            },
+            "payment_methods": [
+                {
+                    "id": pm["id"],
+                    "brand": pm["card"]["brand"],
+                    "last4": pm["card"]["last4"],
+                    "exp_month": pm["card"]["exp_month"],
+                    "exp_year": pm["card"]["exp_year"],
+                    "is_default": pm["id"] == customer.default_payment_method_id,
+                }
+                for pm in payment_methods if pm.get("type") == "card"
+            ],
+            "recent_invoices": [
+                {
+                    "id": invoice.id,
+                    "stripe_invoice_id": invoice.stripe_invoice_id,
+                    "status": invoice.status,
+                    "amount_due": invoice.amount_due,
+                    "amount_paid": invoice.amount_paid,
+                    "created_at": invoice.created_at,
+                    "pdf_url": invoice.invoice_pdf,
+                }
+                for invoice in invoices
+            ],
+        }
+        
+        return billing_info
+    
+    async def update_organization_billing_tier(self, organization_id: int, tier: CustomerTier) -> Customer:
+        """
+        Update an organization's billing tier
+        
+        Args:
+            organization_id: Organization ID
+            tier: New customer tier
+            
+        Returns:
+            Updated customer object
+            
+        Raises:
+            ValueError: If organization doesn't exist or doesn't have a customer record
+        """
+        # Get customer
+        customer = await self.customer_repository.get_by_organization_id(organization_id)
+        if not customer:
+            raise ValueError(f"No customer record found for organization {organization_id}")
+        
+        # Update tier
+        customer = await self.customer_repository.update(customer.id, tier=tier)
+        
+        # TODO: Implement any additional logic based on tier change
+        # For example, updating feature flags, limits, etc.
+        
+        return customer

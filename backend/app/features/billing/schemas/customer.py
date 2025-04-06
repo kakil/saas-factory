@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional, Union
 from datetime import datetime
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
 from app.features.billing.models.customer import CustomerTier
 
@@ -42,5 +42,55 @@ class CustomerResponse(CustomerBase):
     created_at: datetime
     updated_at: datetime
 
+    class Config:
+        from_attributes = True
+
+
+class PaymentMethodResponse(BaseModel):
+    """Schema for payment method response"""
+    id: str
+    brand: str
+    last4: str
+    exp_month: int
+    exp_year: int
+    is_default: bool
+
+
+class InvoiceListResponse(BaseModel):
+    """Schema for simplified invoice in list response"""
+    id: int
+    stripe_invoice_id: Optional[str] = None
+    status: str
+    amount_due: float
+    amount_paid: float
+    created_at: datetime
+    pdf_url: Optional[str] = None
+
+
+class SubscriptionBriefResponse(BaseModel):
+    """Schema for simplified subscription response"""
+    active: bool
+    status: Optional[str] = None
+    period_end: Optional[datetime] = None
+    trial_end: Optional[datetime] = None
+    auto_renew: Optional[bool] = None
+
+
+class OrganizationBriefResponse(BaseModel):
+    """Schema for simplified organization response"""
+    id: int
+    name: str
+    teams_count: int
+    members_count: int
+
+
+class OrganizationBillingResponse(BaseModel):
+    """Schema for organization billing information"""
+    customer: CustomerResponse
+    organization: OrganizationBriefResponse
+    subscription: SubscriptionBriefResponse
+    payment_methods: List[PaymentMethodResponse]
+    recent_invoices: List[InvoiceListResponse]
+    
     class Config:
         from_attributes = True
