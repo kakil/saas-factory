@@ -24,6 +24,7 @@ class Organization(Base):
     # Relationships
     teams = relationship("Team", back_populates="organization", cascade="all, delete-orphan")
     members = relationship("User", back_populates="organization")
+    notifications = relationship("Notification", back_populates="organization")
 
     def __str__(self) -> str:
         return f"Organization(id={self.id}, name={self.name})"

@@ -34,6 +34,8 @@ class User(Base):
     # Relationships
     organization = relationship("Organization", back_populates="members")
     teams = relationship("Team", secondary="user_team", back_populates="members")
+    notifications = relationship("Notification", back_populates="user")
+    notification_preferences = relationship("NotificationPreference", back_populates="user")
 
     def set_password(self, password: str) -> None:
         """
