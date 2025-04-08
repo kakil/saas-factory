@@ -29,5 +29,10 @@
       "Write a marketing email for a software launch"
     ]
   },
-  "default_category": "general"
+  "default_category": {
+    "name": "general",
+    "description": "Default workflow for fallback cases",
+    "workflow": "general",
+    "examples": []
+  }
 }

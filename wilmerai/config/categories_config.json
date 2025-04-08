@@ -1,3 +1,6 @@
 {
-  "active_categories": "default.json"
+  "general": {
+    "workflow": "general",
+    "description": "Default workflow for general queries"
+  }
 }

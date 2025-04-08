@@ -93,12 +93,19 @@ services:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
       - PYTHONUNBUFFERED=1
+      - CONFIG_DIR=/app/Public/Configs
+      - USER_CONFIG=default
+    # Add the following to explicitly set the routing config path
+      - ROUTING_CONFIG_PATH=/app/Public/Configs/Routing/default.json
     # Optional: If you want to secure the WilmerAI API with a key
     # Uncomment the following lines:
     # environment:
     #   - WILMER_API_KEY_FILE=/run/secrets/wilmer_api_key
     # secrets:
     #   - wilmer_api_key
+
+    command: >
+      sh -c "python -c 'import json; print(json.load(open(\"/app/Public/Configs/Routing/default.json\")))' && python /app/server.py"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8765/health"]
       interval: 30s
@@ -144,3 +151,5 @@ volumes:
   redis_data:
   n8n_data:
   wilmerai_data:
+
+

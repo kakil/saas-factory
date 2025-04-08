@@ -3,6 +3,7 @@
   "useFileLogging": true,
   "modelsFolder": "models",
   "useSimplifiedChatOutput": false,
+  "routingConfig": "default",
   "history": {
     "useMemory": true,
     "clearMemoryOnNewRequest": false,
