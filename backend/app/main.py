@@ -13,6 +13,7 @@ from app.features.workflows.api.router import router as workflows_router
 from app.features.onboarding.api import router as onboarding_router
 from app.features.notifications.api.router import router as notifications_router
 from app.features.billing.api import router as billing_router
+from app.features.ai import router as ai_router
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -50,6 +51,7 @@ app.include_router(workflows_router, prefix=f"{settings.API_V1_STR}", tags=["wor
 app.include_router(onboarding_router, prefix=f"{settings.API_V1_STR}/onboarding", tags=["onboarding"])
 app.include_router(notifications_router, prefix=f"{settings.API_V1_STR}/notifications", tags=["notifications"])
 app.include_router(billing_router, prefix=f"{settings.API_V1_STR}/billing", tags=["billing"])
+app.include_router(ai_router, prefix=f"{settings.API_V1_STR}/ai", tags=["ai"])
 
 
 @app.get("/")

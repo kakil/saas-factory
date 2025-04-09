@@ -84,7 +84,7 @@ docs/api-docs/
 .github/workflows/.secrets
 
 # Project documentation - keep locally but don't track
-PROJECT_DOCS/*
+ai_docs/*
 */PROJECT_DOCS/*
 backend/PROJECT_DOCS/*
 CLAUDE.md
@@ -92,3 +92,5 @@ CLAUDE.md
 # Secrets
 secrets/*
 
+# MCP Servers
+.mcp.json
