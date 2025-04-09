@@ -94,3 +94,4 @@ secrets/*
 
 # MCP Servers
 .mcp.json
+.claude/commands/*
